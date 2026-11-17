@@ -12,7 +12,7 @@ extension ToolCatalog {
     public static let clearAnnotations = "clear_annotations"
     public static let waitForUserAnnotation = "wait_for_user_annotation"
 
-    public static let bridgeToolNames: Set<String> = [annotateScreen, clearAnnotations, waitForUserAnnotation, recordAction]
+    public static let bridgeToolNames: Set<String> = [annotateScreen, clearAnnotations, waitForUserAnnotation, recordAction, captureScrolling]
 
     static let appNote = "Needs the Inkpane menu bar app to be running."
 
@@ -275,7 +275,7 @@ extension InkpaneTools {
     static func appNotRunningMessage(tool: String, socketPath: String) -> String {
         """
         Inkpane app is not running, so \(tool) can't reach it (nothing is listening on \(socketPath)). \
-        annotate_screen, clear_annotations, wait_for_user_annotation and record_action need the Inkpane menu bar app: \
+        annotate_screen, clear_annotations, wait_for_user_annotation, record_action and capture_scrolling need the Inkpane menu bar app: \
         ask the user to start it (for example `open -a Inkpane`), then call \(tool) again. \
         capture_screen, capture_window, capture_region, read_screen_ocr and list_windows keep working without it.
         """
@@ -290,6 +290,8 @@ extension InkpaneTools {
                 return try await clearAnnotations(ArgumentParsing.clearAnnotations(args))
             case ToolCatalog.recordAction:
                 return try await recordAction(ArgumentParsing.recordAction(args))
+            case ToolCatalog.captureScrolling:
+                return try await captureScrolling(ArgumentParsing.captureScrolling(args))
             default:
                 return try await waitForUserAnnotation(ArgumentParsing.waitForUserAnnotation(args))
             }

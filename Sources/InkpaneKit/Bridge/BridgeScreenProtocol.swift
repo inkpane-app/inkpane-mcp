@@ -265,7 +265,10 @@ public struct BridgeAsset: Codable, Sendable, Equatable {
     public var bundleId: String?
     public var windowTitle: String?
     public var url: String?
-    public var pinned: Bool
+    /// Whether the capture is never cleaned up automatically: it is in a group, or kept forever
+    /// (by a rule, or because it was pinned before Inkpane removed pinning). Older apps sent
+    /// `pinned` instead, which decodes into this.
+    public var keptForever: Bool
     public var pixelWidth: Int
     public var pixelHeight: Int
     /// The start of the recognized text (redacted like everything else agents get).
@@ -281,7 +284,7 @@ public struct BridgeAsset: Codable, Sendable, Equatable {
 
     public init(
         id: Int64, path: String, kind: String, created: String, appName: String?, bundleId: String?, windowTitle: String?,
-        url: String?, pinned: Bool, pixelWidth: Int, pixelHeight: Int, ocrSnippet: String?,
+        url: String?, keptForever: Bool, pixelWidth: Int, pixelHeight: Int, ocrSnippet: String?,
         project: String? = nil, branch: String? = nil, repo: String? = nil, repoPath: String? = nil
     ) {
         self.id = id
@@ -292,7 +295,7 @@ public struct BridgeAsset: Codable, Sendable, Equatable {
         self.bundleId = bundleId
         self.windowTitle = windowTitle
         self.url = url
-        self.pinned = pinned
+        self.keptForever = keptForever
         self.pixelWidth = pixelWidth
         self.pixelHeight = pixelHeight
         self.ocrSnippet = ocrSnippet
@@ -300,6 +303,57 @@ public struct BridgeAsset: Codable, Sendable, Equatable {
         self.branch = branch
         self.repo = repo
         self.repoPath = repoPath
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, path, kind, created, appName, bundleId, windowTitle, url, keptForever, pixelWidth, pixelHeight, ocrSnippet,
+             project, branch, repo, repoPath
+        /// What `keptForever` was called before; still sent on the bridge for older servers.
+        case pinned
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int64.self, forKey: .id)
+        path = try c.decode(String.self, forKey: .path)
+        kind = try c.decode(String.self, forKey: .kind)
+        created = try c.decode(String.self, forKey: .created)
+        appName = try c.decodeIfPresent(String.self, forKey: .appName)
+        bundleId = try c.decodeIfPresent(String.self, forKey: .bundleId)
+        windowTitle = try c.decodeIfPresent(String.self, forKey: .windowTitle)
+        url = try c.decodeIfPresent(String.self, forKey: .url)
+        keptForever = try c.decodeIfPresent(Bool.self, forKey: .keptForever)
+            ?? c.decodeIfPresent(Bool.self, forKey: .pinned) ?? false
+        pixelWidth = try c.decode(Int.self, forKey: .pixelWidth)
+        pixelHeight = try c.decode(Int.self, forKey: .pixelHeight)
+        ocrSnippet = try c.decodeIfPresent(String.self, forKey: .ocrSnippet)
+        project = try c.decodeIfPresent(String.self, forKey: .project)
+        branch = try c.decodeIfPresent(String.self, forKey: .branch)
+        repo = try c.decodeIfPresent(String.self, forKey: .repo)
+        repoPath = try c.decodeIfPresent(String.self, forKey: .repoPath)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(path, forKey: .path)
+        try c.encode(kind, forKey: .kind)
+        try c.encode(created, forKey: .created)
+        try c.encodeIfPresent(appName, forKey: .appName)
+        try c.encodeIfPresent(bundleId, forKey: .bundleId)
+        try c.encodeIfPresent(windowTitle, forKey: .windowTitle)
+        try c.encodeIfPresent(url, forKey: .url)
+        try c.encode(keptForever, forKey: .keptForever)
+        // Servers from before `kept_forever` require `pinned`; only the bridge sends it, so
+        // agents see just `kept_forever`.
+        if encoder.userInfo[BridgeJSON.legacyFieldsKey] as? Bool == true { try c.encode(keptForever, forKey: .pinned) }
+        try c.encode(pixelWidth, forKey: .pixelWidth)
+        try c.encode(pixelHeight, forKey: .pixelHeight)
+        try c.encodeIfPresent(ocrSnippet, forKey: .ocrSnippet)
+        try c.encodeIfPresent(project, forKey: .project)
+        try c.encodeIfPresent(branch, forKey: .branch)
+        try c.encodeIfPresent(repo, forKey: .repo)
+        try c.encodeIfPresent(repoPath, forKey: .repoPath)
     }
 }
 

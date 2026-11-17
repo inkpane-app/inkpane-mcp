@@ -16,7 +16,7 @@ extension ToolCatalog {
             name: "recent-assets",
             uri: recentAssetsURI,
             title: "Recent captures",
-            description: "The newest captures in the Inkpane library: id, file path, time, source app, window title, URL, Git project and branch (for editor and terminal captures), pinned state and the start of the recognized text. Needs the Inkpane app.",
+            description: "The newest captures in the Inkpane library: id, file path, time, source app, window title, URL, Git project and branch (for editor and terminal captures), whether it is kept forever (in a group or kept by a rule, so never cleaned up automatically) and the start of the recognized text. Needs the Inkpane app.",
             mimeType: "application/json")
     ]
 

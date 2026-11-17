@@ -57,7 +57,7 @@ public enum ToolCatalog {
 
     /// Every tool: the standalone screen tools, then the ones forwarded to the Inkpane app,
     /// then the UI tree and screenshot diff (`UITreeTool.swift`, `DiffTool.swift`).
-    public static var tools: [Tool] { screenTools + bridgeTools + recordingTools + [uiTreeTool, diffScreenshotsTool] }
+    public static var tools: [Tool] { screenTools + bridgeTools + recordingTools + scrollingTools + [uiTreeTool, diffScreenshotsTool] }
 
     /// Tools that work without the Inkpane app.
     static let screenTools: [Tool] = [

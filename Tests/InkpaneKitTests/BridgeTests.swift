@@ -115,6 +115,36 @@ import Testing
         #expect(custom.socketURL.path == "/tmp/x/agent.sock")
         #expect(custom.tokenURL.path == "/tmp/x/agent.token")
     }
+
+    /// An app bundle with `identifier` and an `inkpane-mcp` in its Contents/Helpers.
+    private func makeApp(_ identifier: String) throws -> (app: URL, helper: URL) {
+        let app = FileManager.default.temporaryDirectory.appendingPathComponent("host-\(UUID().uuidString.prefix(8))/Some App.app", isDirectory: true)
+        let helpers = app.appendingPathComponent("Contents/Helpers", isDirectory: true)
+        try FileManager.default.createDirectory(at: helpers, withIntermediateDirectories: true)
+        let plist: [String: Any] = ["CFBundleIdentifier": identifier, "CFBundlePackageType": "APPL"]
+        try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+            .write(to: app.appendingPathComponent("Contents/Info.plist"))
+        let helper = helpers.appendingPathComponent("inkpane-mcp")
+        try Data().write(to: helper)
+        return (app, helper)
+    }
+
+    @Test func theFolderFollowsTheInkpaneAppItRunsInOrShipsInside() throws {
+        let debug = try makeApp("app.inkpane.Inkpane.debug")
+        // The app itself, and its helper.
+        #expect(BridgeLocation.hostAppBundleIdentifier(bundleURL: debug.app, executableURL: nil) == "app.inkpane.Inkpane.debug")
+        #expect(BridgeLocation.hostAppBundleIdentifier(bundleURL: debug.helper.deletingLastPathComponent(), executableURL: debug.helper)
+                == "app.inkpane.Inkpane.debug")
+        let release = try makeApp("app.inkpane.Inkpane")
+        #expect(BridgeLocation.hostAppBundleIdentifier(bundleURL: release.helper.deletingLastPathComponent(), executableURL: release.helper)
+                == "app.inkpane.Inkpane")
+        // Another app embedding the tool, or a tool on its own: the released app's folder.
+        let other = try makeApp("com.example.Other")
+        #expect(BridgeLocation.hostAppBundleIdentifier(bundleURL: other.app, executableURL: nil) == nil)
+        #expect(BridgeLocation.hostAppBundleIdentifier(bundleURL: other.helper.deletingLastPathComponent(), executableURL: other.helper) == nil)
+        let loose = URL(fileURLWithPath: "/usr/local/bin/inkpane-mcp")
+        #expect(BridgeLocation.hostAppBundleIdentifier(bundleURL: loose.deletingLastPathComponent(), executableURL: loose) == nil)
+    }
 }
 
 /// The client against a minimal fake app speaking the protocol.

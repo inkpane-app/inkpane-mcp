@@ -259,7 +259,7 @@ public struct ScreenCapturer: Sendable {
 
     private func screenshot(filter: SCContentFilter, configuration: SCStreamConfiguration) async throws -> CGImage {
         do {
-            return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
+            return try await Screenshot.capture(filter: filter, configuration: configuration)
         } catch {
             throw Self.mapError(error)
         }

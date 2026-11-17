@@ -8,7 +8,7 @@
 - `get_ui_tree` returns a window's Accessibility tree (roles, labels, identifiers, state, frames), and `diff_screenshots` shows what changed between two screenshots, or between one and the screen now.
 - Two ready-made prompts, `report_ui_bug` and `explain_error_on_screen`, chain the tools for common jobs.
 - Speaks MCP over stdio, or over Streamable HTTP on 127.0.0.1 with a bearer token (`--http`).
-- With the Inkpane menu bar app running, agents can also **point and ask**: draw boxes, arrows, text, highlights and spotlights on your screen (`annotate_screen`), and ask you to circle something and get back its region, a screenshot and its text (`wait_for_user_annotation`), and record the screen to an MP4 with those marks in the video (`record_action`). Without the app, every other tool works on its own.
+- With the Inkpane menu bar app running, agents can also **point and ask**: draw boxes, arrows, text, highlights and spotlights on your screen (`annotate_screen`), and ask you to circle something and get back its region, a screenshot and its text (`wait_for_user_annotation`), record the screen to an MP4 with those marks in the video (`record_action`), and capture a whole scrolling page as one long image (`capture_scrolling`). Without the app, every other tool works on its own.
 - With the app running, **screen reads go through it**: you're asked once before a new agent can look, password managers and chat apps are left out, personal data can be blacked out, and an "agent is viewing" indicator shows while it looks. See [With or without the Inkpane app](#with-or-without-the-inkpane-app).
 - Ships as a Swift package with a reusable library, `InkpaneKit`, and the `inkpane-mcp` executable.
 
@@ -291,9 +291,27 @@ MCP clients have their own tool-call timeouts. Keep `timeout_seconds` below your
 
 `start` returns `recording_id`, the recorded `frame` in global points, the movie's `pixel_width`/`pixel_height`, `fps` and the effective `show_clicks`/`show_keys`/`microphone`/`system_audio` (an app from before sound returns neither and ignores the options; the tool then says the recording is silent). `stop` returns `path`, `duration` (seconds, without paused stretches), the pixel size, `frame_count`, `ended_by` (`agent`, `user` when the user pressed Stop first, `max_duration`, or `error` when capture stopped early, e.g. a display was disconnected), `gif_path` and `audio` (`microphone`, `system_audio`: what can be heard; the MP4 has one AAC track with both mixed, kept in step with the video across pauses; GIFs have no sound). Recordings you start are always burned in. If you stop one the user started while their app is set to "Annotations: Editable track", `stop` also returns `annotations_editable: true` and `annotations_path`, a JSON sidecar next to the MP4 that holds the marks, which the MP4 then doesn't show; the user edits them and exports a version with or without them in the app. If the recording already ended, `stop` still returns its file. `status` returns `state` (`idle`, `recording` or `paused`) and `elapsed`. Only one recording runs at a time; `start` fails while one is running. The app needs Screen Recording permission.
 
+### `capture_scrolling`
+
+*Needs the Inkpane app, Inkpane Pro and Accessibility permission for the app.* Captures a window or region that scrolls (a long web page, chat, document or list) as one long image. The app scrolls it automatically from where it is now to the end (it only scrolls down, so scroll the content to the starting point first) and stitches the frames, with its usual scrolling-capture border and controls on screen. The user confirms every call in a prompt, and can take over by touching the mouse or trackpad (then the capture ends when they click Done) or cancel it. With a window, the app brings it to the front and captures the scrolling area at its centre when Accessibility finds one (a list or page without the window's sidebar and toolbar), otherwise the whole window. Excluded apps' windows are left out of the frames, and the user's redaction settings are applied to the whole image.
+
+| Argument | Type | Default | |
+|---|---|---|---|
+| `window_id` / `app` + `title` | | | The window to scroll. |
+| `x`, `y`, `width`, `height` | number | | Or a region in global points, at least 16×16. |
+| `include_image` | boolean | `true` | Return the image slices. |
+| `include_ocr` | boolean | `false` | Also return the text of the whole image (recognized in overlapping bands, each line once). |
+| `languages` | string array | | With `include_ocr`. |
+| `slice_width` | integer | `1280` | Width of the returned slices (200–4000; never scaled up). |
+| `max_slices` | integer | `6` | Return at most this many slices from the top (1–20). |
+| `max_height` | integer | `30000` | Stop once the image is this many pixels tall (100–30000). |
+| `max_duration_seconds` | number | `90` | Stop scrolling after this long (5–300) and return what was captured. |
+
+The image is returned in slices from top to bottom, at most 1568 pixels tall each and overlapping by about 48 pixels, because one image of a long page would be scaled down until its text is unreadable; the full-size PNG is saved in the output folder. The JSON has `path`, `frame` (the scrolled area), `scale`, `pixel_width`/`pixel_height`, `window`, `ended_by` (`bottom`, `limit`, `timeout`, `unsupported` when the app didn't scroll for synthetic events and the image is only what was visible, `user`, or `lost` when the stitching lost its place and couldn't find it again, so the image stops there), `slices` (each slice's `y` and `height` in the full image's pixels), `privacy` and `note` (for example when the stitching lost its place because the content changed while scrolling, so the end is missing). It fails with `denied` when the user says no or cancels, and with an explanation when Accessibility is missing (the app then asks the user for it) or the app is too old.
+
 ### When the app isn't running
 
-The four tools above return an error that starts with *"Inkpane app is not running"*, tells the user how to start it, and says that `capture_*`, `read_screen_ocr` and `list_windows` work without it (unless you run with `--require-app`).
+The tools above return an error that starts with *"Inkpane app is not running"*, tells the user how to start it, and says that `capture_screen`, `capture_window`, `capture_region`, `read_screen_ocr` and `list_windows` work without it (unless you run with `--require-app`).
 
 ### `list_windows`
 
@@ -354,7 +372,7 @@ How it compares: a pixel changed when any channel differs by more than `threshol
 | URI | |
 |---|---|
 | `screen://windows/active` | JSON: on-screen normal windows front to back, `frontmost_window`, displays and permission status. |
-| `screen://assets/recent` | *Needs the Inkpane app.* JSON: the 20 newest captures in the Inkpane library, each with `id`, `path`, `kind`, `created` (ISO 8601), `app_name`, `bundle_id`, `window_title`, `url`, `pinned`, `pixel_width`/`pixel_height`, `ocr_snippet` (the first 200 characters of its recognized text) and, for captures of code editors and terminals, `project`, `branch`, `repo` (the `origin` URL without credentials) and `repo_path` (the repository root). These four are omitted when unknown, and apps from before they were added never send them. Captures of excluded apps are left out. |
+| `screen://assets/recent` | *Needs the Inkpane app.* JSON: the 20 newest captures in the Inkpane library, each with `id`, `path`, `kind`, `created` (ISO 8601), `app_name`, `bundle_id`, `window_title`, `url`, `kept_forever` (in a group, or kept forever by a rule, so never cleaned up automatically; older apps sent `pinned`), `pixel_width`/`pixel_height`, `ocr_snippet` (the first 200 characters of its recognized text) and, for captures of code editors and terminals, `project`, `branch`, `repo` (the `origin` URL without credentials) and `repo_path` (the repository root). These four are omitted when unknown, and apps from before they were added never send them. Captures of excluded apps are left out. |
 | `screen://assets/{id}` | *Needs the Inkpane app* (a resource template). The capture as a PNG (longer edge at most 1568 px), plus its metadata as JSON. |
 
 ## Prompts
@@ -394,18 +412,18 @@ What this protects against: an agent that only uses MCP tools sees your screen o
 | Environment variable | |
 |---|---|
 | `INKPANE_MCP_OUTPUT_DIR` | Where captures are saved. Default: `$TMPDIR/inkpane-mcp`. |
-| `INKPANE_APP_DIR` | Folder holding the Inkpane app's `agent.sock` and `agent.token`, and the `--http` token `mcp-http.token`. Default: `~/Library/Application Support/app.inkpane.Inkpane`. |
+| `INKPANE_APP_DIR` | Folder holding the Inkpane app's `agent.sock` and `agent.token`, and the `--http` token `mcp-http.token`. Default: `~/Library/Application Support/app.inkpane.Inkpane` (for the `inkpane-mcp` inside an Inkpane app, that app's own folder, e.g. `app.inkpane.Inkpane.debug` for a development build). |
 | `INKPANE_MCP_REQUIRE_APP` | `1` does the same as `--require-app`: screen reads fail unless the Inkpane app is running. |
 | `INKPANE_MCP_EXCLUDE_APPS` | Comma-separated bundle ids to leave out of captures and window lists when the app is **not** running (e.g. `com.1password.1password,com.tinyspeck.slackmacgap`). With the app running, its own list applies. |
 
 ## Talking to the Inkpane app
 
-`annotate_screen`, `clear_annotations`, `wait_for_user_annotation`, `record_action`, the library resources and (while the app runs) all screen reads are forwarded to the Inkpane menu bar app over a Unix domain socket. The protocol types and the client are open source, in `InkpaneKit` (`Sources/InkpaneKit/Bridge/`). This package doesn't depend on the app's code.
+`annotate_screen`, `clear_annotations`, `wait_for_user_annotation`, `record_action`, `capture_scrolling`, the library resources and (while the app runs) all screen reads are forwarded to the Inkpane menu bar app over a Unix domain socket. The protocol types and the client are open source, in `InkpaneKit` (`Sources/InkpaneKit/Bridge/`). This package doesn't depend on the app's code.
 
 - **Discovery.** The app listens on `~/Library/Application Support/app.inkpane.Inkpane/agent.sock`. That folder is named after the app's bundle identifier.
 - **Access.** The socket is mode `0600`. The app refuses connections from other users, and writes a random per-launch token to `agent.token` (also `0600`) next to the socket. Every request carries the token, so only your own processes can draw on your screen or ask you for a selection.
 - **Framing.** Newline-delimited JSON with snake_case keys. Each request has a protocol version `v`, an `id`, the `token`, a `method` and `params`, plus `client`: the MCP client's `name`, `title` and `version` from its `initialize` request, and `via` (`inkpane-mcp 0.9.0`). Each response repeats the `id` and carries `ok`, plus a `result` or an `error` with a `code` and a `message`. Unknown codes from a newer app read as `failed`.
-- **Methods.** `hello`, `annotate` (mark kinds `box`, `arrow`, `text`, `highlight` and `spotlight`, the last with optional `shape` and `dim_opacity`; an app from before `spotlight` answers `invalid_request` for it, still under protocol version 1; optional `window_id` pins the marks to a window and the result then carries `window`, and an app from before it ignores the field), `clear`, `wait_for_user_annotation`, `authorize`, `record_start`, `record_stop`, `record_status` (see `BridgeRecording.swift`), `capture` (a target and optional OCR settings; returns a full-resolution PNG, OCR and a privacy report, or a `fallback` with the policy to capture under), `list_windows`, `recent_assets`, `asset` and `ui_tree` (a target and `UITreeOptions`; returns the tree, or a `fallback` with the policy to read it under, like `capture`; an older app answers `unknown_method` and `inkpane-mcp` reads the tree itself). The types are in `BridgeProtocol.swift`, `BridgeScreenProtocol.swift` and `BridgeUITree.swift`.
+- **Methods.** `hello`, `annotate` (mark kinds `box`, `arrow`, `text`, `highlight` and `spotlight`, the last with optional `shape` and `dim_opacity`; an app from before `spotlight` answers `invalid_request` for it, still under protocol version 1; optional `window_id` pins the marks to a window and the result then carries `window`, and an app from before it ignores the field), `clear`, `wait_for_user_annotation`, `authorize`, `record_start`, `record_stop`, `record_status` (see `BridgeRecording.swift`), `capture_scrolling` (a window or region target, optional OCR, `max_height`, `max_duration`; the app writes the PNG to `AgentScrolling/` in its folder and returns its `path`, which the caller takes over; see `BridgeScrolling.swift`), `capture` (a target and optional OCR settings; returns a full-resolution PNG, OCR and a privacy report, or a `fallback` with the policy to capture under), `list_windows`, `recent_assets`, `asset` and `ui_tree` (a target and `UITreeOptions`; returns the tree, or a `fallback` with the policy to read it under, like `capture`; an older app answers `unknown_method` and `inkpane-mcp` reads the tree itself). The types are in `BridgeProtocol.swift`, `BridgeScreenProtocol.swift` and `BridgeUITree.swift`.
 - **Authorization.** Every method except `hello` and `authorize` needs an allowed client. Otherwise the app answers `authorization_required`; the client then sends `authorize` (the app shows its prompt) and, if allowed, repeats the request. `BridgeClient` does this for you. `denied` means the user said no for this session; `excluded` means the target belongs to an excluded app. The app identifies the connecting process itself (`LOCAL_PEERPID`, its parent and its `.app`), so `client` is only a label.
 
 ```

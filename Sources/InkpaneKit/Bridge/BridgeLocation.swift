@@ -7,10 +7,38 @@ import Foundation
 ///     ~/Library/Application Support/app.inkpane.Inkpane/agent.sock
 ///     ~/Library/Application Support/app.inkpane.Inkpane/agent.token
 ///
-/// `INKPANE_APP_DIR` overrides the folder (for tests or a custom build).
+/// A differently identified build of the app (the `app.inkpane.Inkpane.debug` development
+/// build) uses its own folder, and so does the `inkpane-mcp` inside it (see
+/// `appSupportFolderName`). `INKPANE_APP_DIR` overrides the folder (for tests or a custom build).
 public struct BridgeLocation: Sendable, Equatable, CustomStringConvertible {
-    /// The app's bundle identifier, which names its Application Support folder.
-    public static let appSupportFolderName = "app.inkpane.Inkpane"
+    /// The released app's bundle identifier.
+    public static let releaseBundleIdentifier = "app.inkpane.Inkpane"
+
+    /// The app's bundle identifier, which names its Application Support folder: the Inkpane
+    /// app this code runs in (`Bundle.main`) or ships inside (`inkpane-mcp` in its
+    /// `Contents/Helpers`), else the released app's.
+    public static var appSupportFolderName: String {
+        hostAppBundleIdentifier(bundleURL: Bundle.main.bundleURL, executableURL: Bundle.main.executableURL) ?? releaseBundleIdentifier
+    }
+
+    /// The identifier of the Inkpane app at `bundleURL`, or of the app whose `Contents/Helpers`
+    /// holds `executableURL`. Only identifiers of the Inkpane family count, so other hosts get
+    /// the released app's folder.
+    static func hostAppBundleIdentifier(bundleURL: URL, executableURL: URL?) -> String? {
+        var appURL: URL? = bundleURL.pathExtension == "app" ? bundleURL : nil
+        if appURL == nil, let executable = executableURL?.resolvingSymlinksInPath() {
+            let helpers = executable.deletingLastPathComponent()
+            let contents = helpers.deletingLastPathComponent()
+            let app = contents.deletingLastPathComponent()
+            if helpers.lastPathComponent == "Helpers", contents.lastPathComponent == "Contents", app.pathExtension == "app" {
+                appURL = app
+            }
+        }
+        guard let appURL, let identifier = Bundle(url: appURL)?.bundleIdentifier,
+              identifier == releaseBundleIdentifier || identifier.hasPrefix(releaseBundleIdentifier + ".") else { return nil }
+        return identifier
+    }
+
     public static let socketFileName = "agent.sock"
     public static let tokenFileName = "agent.token"
     public static let environmentKey = "INKPANE_APP_DIR"
@@ -24,7 +52,7 @@ public struct BridgeLocation: Sendable, Equatable, CustomStringConvertible {
     public var socketURL: URL { directory.appendingPathComponent(Self.socketFileName, isDirectory: false) }
     public var tokenURL: URL { directory.appendingPathComponent(Self.tokenFileName, isDirectory: false) }
 
-    /// `~/Library/Application Support/app.inkpane.Inkpane`.
+    /// `~/Library/Application Support/<appSupportFolderName>`.
     public static var `default`: BridgeLocation {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return BridgeLocation(directory: support.appendingPathComponent(appSupportFolderName, isDirectory: true))

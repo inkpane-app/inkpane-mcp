@@ -162,7 +162,7 @@ import Testing
 
     @Test func assetResourcesComeFromTheApp() async throws {
         let asset = BridgeAsset(id: 5, path: "/tmp/a.png", kind: "image", created: "2026-10-30T10:00:00Z", appName: "Safari",
-                                bundleId: "com.apple.Safari", windowTitle: "Docs", url: "https://example.com", pinned: true,
+                                bundleId: "com.apple.Safari", windowTitle: "Docs", url: "https://example.com", keptForever: true,
                                 pixelWidth: 8, pixelHeight: 4, ocrSnippet: "Hello")
         let app = try FakeApp { method, _ in
             method == "recent_assets"
@@ -174,6 +174,8 @@ import Testing
         let recent = try await tools.readResource(uri: ToolCatalog.recentAssetsURI)
         let json = try #require(recent.contents.first?.text)
         #expect(json.contains(#""window_title":"Docs""#))
+        #expect(json.contains(#""kept_forever":true"#))
+        #expect(!json.contains("pinned"))
         #expect(json.contains("1 capture(s) of apps on the user's privacy exclusion list"))
 
         let one = try await tools.readResource(uri: "screen://assets/5")
@@ -189,7 +191,7 @@ import Testing
 
     @Test func recentAssetsCarryTheGitProject() async throws {
         let asset = BridgeAsset(id: 6, path: "/tmp/b.png", kind: "image", created: "2026-10-30T10:00:00Z", appName: "Cursor",
-                                bundleId: nil, windowTitle: "Main.swift — widgets", url: nil, pinned: false,
+                                bundleId: nil, windowTitle: "Main.swift — widgets", url: nil, keptForever: false,
                                 pixelWidth: 8, pixelHeight: 4, ocrSnippet: nil, project: "widgets", branch: "feature/login",
                                 repo: "https://github.com/acme/widgets.git", repoPath: "/Users/me/code/widgets")
         let app = try FakeApp { _, _ in FakeApp.success(RecentAssetsResult(assets: [asset], hiddenCount: 0)) }
@@ -206,6 +208,18 @@ import Testing
         let asset = try BridgeJSON.decoder().decode(BridgeAsset.self, from: Data(old.utf8))
         #expect(asset.project == nil)
         #expect(asset.branch == nil)
+        #expect(!asset.keptForever)
+        // An older app's `pinned` becomes `kept_forever`.
+        let pinned = old.replacingOccurrences(of: #""pinned":false"#, with: #""pinned":true"#)
+        #expect(try BridgeJSON.decoder().decode(BridgeAsset.self, from: Data(pinned.utf8)).keptForever)
+    }
+
+    @Test func theBridgeStillSendsPinnedForOlderServers() throws {
+        let asset = BridgeAsset(id: 1, path: "/a.png", kind: "image", created: "2026-01-01T00:00:00Z", appName: nil, bundleId: nil,
+                                windowTitle: nil, url: nil, keptForever: true, pixelWidth: 1, pixelHeight: 1, ocrSnippet: nil)
+        let wire = String(decoding: try BridgeJSON.encoder().encode(asset), as: UTF8.self)
+        #expect(wire.contains(#""kept_forever":true"#) && wire.contains(#""pinned":true"#))
+        #expect(try BridgeJSON.decoder().decode(BridgeAsset.self, from: Data(wire.utf8)) == asset)
     }
 
     @Test func assetResourcesNeedTheApp() async throws {

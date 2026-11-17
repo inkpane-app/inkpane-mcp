@@ -120,7 +120,7 @@ import Testing
         defer { try? FileManager.default.removeItem(at: folder) }
         let png = try ImageUtilities.pngData(Self.image()).base64EncodedString()
         let asset = BridgeAsset(id: 7, path: "/tmp/7.png", kind: "image", created: "2026-10-30T10:00:00Z", appName: nil, bundleId: nil,
-                                windowTitle: nil, url: nil, pinned: false, pixelWidth: 80, pixelHeight: 40, ocrSnippet: nil)
+                                windowTitle: nil, url: nil, keptForever: false, pixelWidth: 80, pixelHeight: 40, ocrSnippet: nil)
         let app = try FakeApp { _, _ in FakeApp.success(AssetResult(asset: asset, pngBase64: png)) }
         defer { app.stop() }
         let after = try file("after.png", Self.image())

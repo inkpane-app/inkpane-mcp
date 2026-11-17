@@ -151,7 +151,7 @@ import Testing
             Set(ToolCatalog.tools.map(\.name))
                 == ["capture_screen", "capture_window", "capture_region", "read_screen_ocr", "list_windows",
                     "annotate_screen", "clear_annotations", "wait_for_user_annotation", "record_action",
-                    "get_ui_tree", "diff_screenshots"])
+                    "capture_scrolling", "get_ui_tree", "diff_screenshots"])
         #expect(ToolCatalog.screenTools.allSatisfy { $0.annotations.readOnlyHint == true })
         #expect(ToolCatalog.resources.map(\.uri) == ["screen://windows/active", "screen://assets/recent"])
     }

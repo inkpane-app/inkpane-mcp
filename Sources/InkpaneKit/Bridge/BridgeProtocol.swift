@@ -55,6 +55,9 @@ public enum BridgeMethod: String, Codable, Sendable, CaseIterable {
     /// The accessibility tree of a window under the user's privacy settings. Params:
     /// `UITreeParams`; result: `UITreeBridgeResult` (see `BridgeUITree.swift`).
     case uiTree = "ui_tree"
+    /// Scroll a window or region to the end and stitch it into one long image. Params:
+    /// `CaptureScrollingParams`; result: `CaptureScrollingResult` (see `BridgeScrolling.swift`).
+    case captureScrolling = "capture_scrolling"
 }
 
 // MARK: - Envelopes
@@ -136,6 +139,8 @@ public struct BridgeErrorPayload: Codable, Sendable, Equatable, Error {
         case denied
         /// The target belongs to an app on the user's exclusion list.
         case excluded
+        /// The method needs a paid upgrade of the app that the user doesn't have.
+        case proRequired = "pro_required"
 
         /// Unknown codes from a newer peer decode as `failed`.
         public init(from decoder: any Decoder) throws {
@@ -579,10 +584,15 @@ public enum BridgeColor {
 // MARK: - JSON
 
 public enum BridgeJSON {
+    /// Set in the bridge encoder's `userInfo`: also write fields that were renamed, for peers
+    /// that still expect the old names (`BridgeAsset.pinned`).
+    public static let legacyFieldsKey = CodingUserInfoKey(rawValue: "inkpane.legacyFields")!
+
     public static func encoder() -> JSONEncoder {
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        encoder.userInfo[legacyFieldsKey] = true
         return encoder
     }
 
