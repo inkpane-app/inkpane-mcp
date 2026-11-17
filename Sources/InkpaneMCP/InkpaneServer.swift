@@ -4,7 +4,7 @@ import InkpaneKit
 
 public enum InkpaneServer {
     public static let name = "inkpane-mcp"
-    public static let version = "0.11.1"
+    public static let version = "0.12.1"
 
     static let instructions = """
         Inkpane gives you eyes on the user's macOS screen. Use list_windows (or the \
@@ -69,7 +69,7 @@ public enum InkpaneServer {
         if let requirement { tools.requirement = requirement }
         let identity = tools.bridge.identity
         let server = await makeServer(tools: tools)
-        try await server.start(transport: StdioTransport()) { info, _ in
+        try await server.start(transport: BlockingStdioTransport()) { info, _ in
             identity.info = clientInfo(info)
         }
         await server.waitUntilCompleted()
