@@ -19,25 +19,37 @@ public struct BridgeClientInfo: Codable, Sendable, Hashable {
     public var version: String?
     /// The bridge client itself, e.g. `inkpane-mcp 0.9.0`.
     public var via: String?
+    /// Which MCP session this is when one `inkpane-mcp` process serves several
+    /// (`inkpane-mcp --http`), so the app's "Allow Once" covers that session only. `nil` for
+    /// stdio, where the process is the session.
+    public var session: String?
 
-    public init(name: String, title: String? = nil, version: String? = nil, via: String? = nil) {
+    public init(name: String, title: String? = nil, version: String? = nil, via: String? = nil, session: String? = nil) {
         self.name = name
         self.title = title
         self.version = version
         self.via = via
+        self.session = session
     }
 }
 
 /// A thread-safe slot for the client info, filled in once the MCP client has initialized.
 public final class BridgeClientIdentity: Sendable {
     private let state = OSAllocatedUnfairLock<BridgeClientInfo?>(initialState: nil)
+    /// The MCP session this identity belongs to (`inkpane-mcp --http`); always reported in `info`.
+    public let session: String?
 
-    public init(_ info: BridgeClientInfo? = nil) {
+    public init(_ info: BridgeClientInfo? = nil, session: String? = nil) {
+        self.session = session
         state.withLock { $0 = info }
     }
 
     public var info: BridgeClientInfo? {
-        get { state.withLock { $0 } }
+        get {
+            guard var info = state.withLock({ $0 }) else { return nil }
+            if let session { info.session = session }
+            return info
+        }
         set { state.withLock { $0 = newValue } }
     }
 }
@@ -45,7 +57,8 @@ public final class BridgeClientIdentity: Sendable {
 // MARK: - authorize
 
 public enum AuthorizationDecision: String, Codable, Sendable, Hashable {
-    /// For this client process only (until `inkpane-mcp` exits).
+    /// For this client session only: until `inkpane-mcp` exits, or with `--http`, for one MCP
+    /// session.
     case allowedOnce = "allowed_once"
     /// Remembered; revocable in Inkpane Settings → Privacy.
     case allowedAlways = "allowed_always"

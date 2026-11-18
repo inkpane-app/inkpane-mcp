@@ -208,6 +208,22 @@ import Testing
         #expect(throws: BridgeClientError.remote(BridgeErrorPayload(.excluded, "no"))) { try BridgeClient.decodeResult(denied, as: BridgeEmpty.self) }
     }
 
+    /// `inkpane-mcp --http` serves several MCP sessions from one process; each reports its own.
+    @Test func anHTTPSessionsIdentityCarriesItsSessionID() throws {
+        let identity = BridgeClientIdentity(session: "S1")
+        #expect(identity.info == nil)
+        identity.info = BridgeClientInfo(name: "claude-code", version: "2.0")
+        #expect(identity.info == BridgeClientInfo(name: "claude-code", version: "2.0", session: "S1"))
+        #expect(BridgeClientIdentity(BridgeClientInfo(name: "cursor")).info?.session == nil)
+
+        let request = BridgeRequest(id: "1", token: "t", method: .capture, params: BridgeEmpty(), client: identity.info)
+        let header = try BridgeJSON.decoder().decode(BridgeRequestHeader.self, from: BridgeJSON.encoder().encode(request))
+        #expect(header.client?.session == "S1")
+        // An older inkpane-mcp sends no session.
+        let old = try BridgeJSON.decoder().decode(BridgeRequestHeader.self, from: Data(#"{"v":1,"id":"x","client":{"name":"cursor"}}"#.utf8))
+        #expect(old.client == BridgeClientInfo(name: "cursor"))
+    }
+
     @Test func policiesAndWindowsRoundTripThroughSnakeCaseJSON() throws {
         let policy = CapturePolicy(
             exclusions: CaptureExclusions(bundleIDs: ["com.apple.MobileSMS"], processIDs: [42], exceptWindowIDs: [7]),

@@ -4,7 +4,7 @@ import InkpaneKit
 
 public enum InkpaneServer {
     public static let name = "inkpane-mcp"
-    public static let version = "0.12.1"
+    public static let version = "0.13.0"
 
     static let instructions = """
         Inkpane gives you eyes on the user's macOS screen. Use list_windows (or the \

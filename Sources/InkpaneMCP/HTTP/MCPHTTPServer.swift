@@ -250,9 +250,10 @@ private actor SessionStore {
                 ProtocolVersionValidator(),
                 SessionValidator(),
             ]))
-        // Each session tells the Inkpane app its own client name.
+        // Each session tells the Inkpane app its own client name, and its id: the app's
+        // "Allow Once" is per session, not per process.
         var tools = tools
-        let identity = BridgeClientIdentity()
+        let identity = BridgeClientIdentity(session: id)
         tools.bridge.identity = identity
         let server = await InkpaneServer.makeServer(tools: tools)
         do {
