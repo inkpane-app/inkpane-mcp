@@ -307,7 +307,7 @@ public struct BridgeAnnotation: Codable, Sendable, Equatable {
         if let fontSize, !(fontSize.isFinite && fontSize >= 6 && fontSize <= 200) {
             throw fail("font_size must be between 6 and 200.")
         }
-        if let ttl, !(ttl.isFinite && ttl >= 0) { throw fail("ttl must be >= 0.") }
+        if let ttl, !AnnotateParams.isValidTTL(ttl) { throw fail(AnnotateParams.ttlError) }
         if kind != .spotlight, shape != nil || dimOpacity != nil {
             throw fail("shape and dim_opacity only apply to a spotlight.")
         }
@@ -319,7 +319,12 @@ public struct BridgeAnnotation: Codable, Sendable, Equatable {
 
 public struct AnnotateParams: Codable, Sendable, Equatable {
     public static let defaultTTL: Double = 10
+    /// The longest a mark may last before it fades (a day); `0` keeps it until cleared.
+    public static let maxTTL: Double = 86_400
     public static let maxAnnotations = 100
+
+    static func isValidTTL(_ ttl: Double) -> Bool { ttl.isFinite && ttl >= 0 && ttl <= maxTTL }
+    static var ttlError: String { "ttl must be between 0 and \(Int(maxTTL)) seconds (0 keeps marks until cleared)." }
 
     public var annotations: [BridgeAnnotation]
     /// Default lifetime for annotations without their own `ttl`. `0` keeps them until cleared.
@@ -344,7 +349,7 @@ public struct AnnotateParams: Codable, Sendable, Equatable {
         guard annotations.count <= Self.maxAnnotations else {
             throw BridgeErrorPayload(.invalidRequest, "At most \(Self.maxAnnotations) annotations per call.")
         }
-        if let ttl, !(ttl.isFinite && ttl >= 0) { throw BridgeErrorPayload(.invalidRequest, "ttl must be >= 0.") }
+        if let ttl, !Self.isValidTTL(ttl) { throw BridgeErrorPayload(.invalidRequest, Self.ttlError) }
         if windowId == 0 { throw BridgeErrorPayload(.invalidRequest, "window_id must be a window id from list_windows.") }
         for annotation in annotations { try annotation.validate() }
     }

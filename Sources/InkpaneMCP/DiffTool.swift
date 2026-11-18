@@ -53,7 +53,7 @@ extension ToolCatalog {
                 "include_image": .object(["type": "boolean", "description": "Return the difference image. Default true (it is always saved to disk)."]),
                 "max_dimension": .object(["type": "integer", "minimum": 0, "description": .string("Longest edge of the returned difference image in pixels (default \(ArgumentParsing.defaultMaxDimension); 0 = full size).")]),
                 "annotate": .object(["type": "boolean", "description": "Draw the changed regions on the user's screen with annotate_screen (needs the Inkpane app and screen coordinates). Default false."]),
-                "ttl_seconds": .object(["type": "number", "minimum": 0, "description": "With annotate: how long the boxes stay. Default 10."]),
+                "ttl_seconds": .object(["type": "number", "minimum": 0, "maximum": .double(AnnotateParams.maxTTL), "description": "With annotate: how long the boxes stay. Default 10."]),
             ]),
         ]),
         annotations: Tool.Annotations(readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false))
@@ -121,7 +121,7 @@ extension ArgumentParsing {
         let threshold = try args.double("threshold") ?? ImageDiffOptions.defaultThreshold
         guard (0...1).contains(threshold) else { throw ArgumentError("threshold must be between 0 and 1.") }
         let ttl = try args.double("ttl_seconds") ?? AnnotateParams.defaultTTL
-        guard ttl >= 0 else { throw ArgumentError("ttl_seconds must be >= 0.") }
+        guard ttl >= 0, ttl <= AnnotateParams.maxTTL else { throw ArgumentError("ttl_seconds must be between 0 and \(Int(AnnotateParams.maxTTL)).") }
         return DiffRequest(
             before: before, after: after, frame: frame, threshold: threshold, includeImage: try args.bool("include_image") ?? true,
             maxDimension: try maxDimension(args), annotate: try args.bool("annotate") ?? false, ttl: ttl)

@@ -129,7 +129,8 @@ import Testing
                         reply = try! BridgeJSON.line(BridgeResponse.success(id: id, RecordStopResult(
                             recordingId: "rec-1", path: "/tmp/recording.mp4", duration: 4.25, pixelWidth: 600, pixelHeight: 400,
                             frameCount: 120, frame: Rect(x: 10, y: 20, width: 300, height: 200), endedBy: .agent, gifPath: "/tmp/recording.gif",
-                            audio: [.microphone], annotationsPath: "/tmp/recording.inkpane-annotations.json", annotationsEditable: true)))
+                            audio: [.microphone], annotationsPath: "/tmp/recording.inkpane-annotations.json", annotationsEditable: true,
+                            privacy: PrivacyReport(redactedSecureFields: 1))))
                     }
                     try! UnixSocket.writeAll(client, reply)
                     break reading
@@ -160,6 +161,7 @@ import Testing
         #expect(stopText.contains(#""audio":["microphone"]"#))
         #expect(stopText.contains("editable track (/tmp/recording.inkpane-annotations.json)"))
         #expect(stopText.contains(#""annotations_editable":true"#))
+        #expect(stopText.contains("Privacy: 1 password field(s) blacked out."))
 
         let oldApp = await tools.call(name: ToolCatalog.recordAction,
                                       arguments: ["action": "start", "x": 10, "y": 20, "width": 300, "height": 200, "system_audio": true])

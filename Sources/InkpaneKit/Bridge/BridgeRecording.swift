@@ -198,11 +198,15 @@ public struct RecordStopResult: Codable, Sendable, Equatable {
     /// `true` when the MP4 has no annotations drawn in because they are on an editable track
     /// (`annotations_path`).
     public var annotationsEditable: Bool?
+    /// What the user's privacy settings hid in the movie, like a screenshot's report: password
+    /// fields blacked out (`redacted_secure_fields` is the most at the same time). `nil` when
+    /// nothing was, and from apps that don't redact recordings.
+    public var privacy: PrivacyReport?
 
     public init(
         recordingId: String, path: String, duration: Double, pixelWidth: Int, pixelHeight: Int, frameCount: Int,
         frame: Rect, endedBy: EndReason, gifPath: String? = nil, gifError: String? = nil, audio: [RecordAudioSource]? = nil,
-        annotationsPath: String? = nil, annotationsEditable: Bool? = nil
+        annotationsPath: String? = nil, annotationsEditable: Bool? = nil, privacy: PrivacyReport? = nil
     ) {
         self.recordingId = recordingId
         self.path = path
@@ -217,6 +221,7 @@ public struct RecordStopResult: Codable, Sendable, Equatable {
         self.audio = audio
         self.annotationsPath = annotationsPath
         self.annotationsEditable = annotationsEditable
+        self.privacy = privacy
     }
 }
 

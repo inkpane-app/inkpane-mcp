@@ -41,6 +41,15 @@ import Testing
         #expect(throws: ArgumentError.self) { try parse(["annotations": [["type": "text", "x": 1, "y": 1, "text": "a", "label": "b"]]]) }
         #expect(throws: ArgumentError.self) { try parse(["annotations": [["type": "box", "x": 1, "y": 1, "width": 5, "height": 5, "color": "nope"]]]) }
         #expect(throws: ArgumentError.self) { try parse(["annotations": [["type": "box", "x": 1, "y": 1, "width": 5, "height": 5]], "ttl_seconds": -1]) }
+        // A mark lasts at most a day (0 keeps it until cleared).
+        #expect(throws: ArgumentError.self) { try parse(["annotations": [["type": "box", "x": 1, "y": 1, "width": 5, "height": 5]], "ttl_seconds": 86_401]) }
+        #expect(throws: ArgumentError.self) { try parse(["annotations": [["type": "box", "x": 1, "y": 1, "width": 5, "height": 5, "ttl_seconds": 1e300]]]) }
+        #expect(throws: Never.self) { try parse(["annotations": [["type": "box", "x": 1, "y": 1, "width": 5, "height": 5]], "ttl_seconds": 86_400]) }
+        let box = BridgeAnnotation.box(Rect(x: 1, y: 1, width: 5, height: 5))
+        #expect(throws: BridgeErrorPayload.self) { try AnnotateParams(annotations: [box], ttl: .infinity).validate() }
+        var lasting = box
+        lasting.ttl = 1e12
+        #expect(throws: BridgeErrorPayload.self) { try AnnotateParams(annotations: [lasting]).validate() }
         do {
             try parse(["annotations": [["type": "box", "x": 1, "y": 1, "width": 5, "height": 5], ["type": "arrow"]]])
             Issue.record("expected an error")

@@ -206,6 +206,7 @@ extension InkpaneTools {
                 summary += "\nAnnotations are on a separate, editable track (\(track)); the MP4 has none drawn in. "
                     + "The user can edit them and export a version with or without them in Inkpane."
             }
+            if let privacy = result.privacy?.summary { summary += "\n" + privacy }
             return CallTool.Result(content: [Self.text(summary + "\n" + JSON.encode(result))], isError: false)
         case .status:
             let result = try await bridge.recordStatus()

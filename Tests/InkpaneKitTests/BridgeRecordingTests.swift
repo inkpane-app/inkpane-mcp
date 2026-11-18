@@ -78,5 +78,13 @@ import Testing
         #expect(editableJSON.contains(#""annotations_editable":true"#))
         #expect(try BridgeClient.decodeResult(try BridgeJSON.line(BridgeResponse.success(id: "2", editable)).dropLast(),
                                               as: RecordStopResult.self) == editable)
+        #expect(!editableJSON.contains("privacy"))
+
+        // Password fields blacked out in an agent's recording, reported like a screenshot's.
+        var masked = result
+        masked.privacy = PrivacyReport(redactedSecureFields: 2)
+        let maskedLine = try BridgeJSON.line(BridgeResponse.success(id: "3", masked))
+        #expect(String(decoding: maskedLine, as: UTF8.self).contains(#""redacted_secure_fields":2"#))
+        #expect(try BridgeClient.decodeResult(maskedLine.dropLast(), as: RecordStopResult.self) == masked)
     }
 }
